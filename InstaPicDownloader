@@ -1,0 +1,86 @@
+from selenium import webdriver
+import os
+import wget
+from time import sleep
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support import expected_conditions as ec
+
+#Modify the below four lines as per your need
+username = "Enter_your_instagram_user_name_here"
+password = "Enter_your_instagram_password_here"
+target_user_name = "name_of_the_profile_from_which_you_want_to_download_the_pics"
+NoOfPicsNeeded = 5; # specify the number of pics you want to download from the profile
+
+saving_name = target_user_name
+
+chrome_options = Options()
+chrome_options.add_argument("start-maximized")
+driver = webdriver.Chrome(options=chrome_options)
+driver.get("https://www.instagram.com")
+
+WebDriverWait(driver, 10).until(ec.presence_of_element_located((By.XPATH, "//input[@name='username']"))).send_keys(username)
+driver.find_element_by_xpath("//input[@name='password']").send_keys(password)
+driver.find_element_by_xpath("//button/div[text()='Log In']").click()
+WebDriverWait(driver, 10).until(ec.element_to_be_clickable((By.XPATH, '//button[contains(text(), "Not Now")]'))).click()
+sleep(2)
+WebDriverWait(driver, 10).until(ec.element_to_be_clickable((By.XPATH, '//button[contains(text(), "Not Now")]'))).click()
+driver.get("https://www.instagram.com/"+target_user_name)
+
+posts = []
+
+lenOfPage = driver.execute_script("window.scrollTo(0, document.body.scrollHeight);var lenOfPage=document.body.scrollHeight;return lenOfPage;")
+match=False
+while(match==False):
+    lastCount = lenOfPage
+    sleep(1)
+    lenOfPage = driver.execute_script("window.scrollTo(0, document.body.scrollHeight);var lenOfPage=document.body.scrollHeight;return lenOfPage;")
+
+    sleep(1)
+    links = driver.find_elements_by_tag_name("a")
+
+    for link in links:
+        current_link = link.get_attribute("href")
+        if '/p/' in current_link:
+            if current_link not in posts:
+                posts.append(current_link)
+    sleep(1)
+    print(len(posts))
+    if lastCount == lenOfPage or len(posts) >= NoOfPicsNeeded:
+        match=True
+
+print(posts)
+
+
+
+path = os.getcwd()
+path = os.path.join(path, saving_name)
+if not os.path.isdir(path):
+    os.mkdir(path)
+
+filelist = [ f for f in os.listdir(path) if f.endswith(".jpg") ]
+for f in filelist:
+    os.remove(os.path.join(path, f))
+
+image_urls = []
+counter = 1
+for post in posts:
+    driver.get(post)
+    sleep(2)
+    image_url = None
+
+    try:
+        WebDriverWait(driver, 20).until(ec.element_to_be_clickable((By.XPATH, '//img[@class="FFVAD"]')))
+        image = driver.find_element_by_xpath('//img[@class="FFVAD"]')
+        image_url = image.get_attribute("src")
+    except:
+        pass
+
+    if image_url is not None:
+        #print(image_url)
+        if image_url not in image_urls:
+            save_as = os.path.join(path, saving_name + str(counter) + '.jpg')
+            wget.download(image_url, save_as)
+            counter += 1
+            image_urls.append(image_url)
